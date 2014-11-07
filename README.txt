@@ -5,6 +5,8 @@ How to run the WebGraph framework
 - Compile the JAR file using mvn (mvn install) and copy it to the dependency 
   location.
 
+In order to use maven on an installation where it is not yet in the PATH, one can run mvn.sh to set up a link to the maven root directory, although it will only keep the path for the current session. Instructions on adding the paths to a .bashrc for example are given by the script.
+
 Recompress with other parameters:
 java -cp "*" it.unimi.dsi.webgraph.BVGraph -o -m 1 ../sets/uk-2007-05@100000 ../sets/uk-2007-05-fast
 
