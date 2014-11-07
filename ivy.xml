@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<ivy-module version="2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://ant.apache.org/ivy/schemas/ivy.xsd">
+	<info organisation="it.unimi.dsi" module="webgraph"/>
+	
+	<configurations defaultconf="compile" defaultconfmapping="*->default">
+		<conf name="compile"/>
+		<conf name="runtime" extends="compile"/>
+		<conf name="test" extends="runtime"/>
+	</configurations>
+	
+	<dependencies>
+
+		<dependency org="it.unimi.dsi" name="fastutil" rev="latest.release" />
+		<dependency org="it.unimi.dsi" name="sux4j" rev="latest.release" />
+		<dependency org="it.unimi.dsi" name="dsiutils" rev="latest.release" />
+		<dependency org="net.sf.jung" name="jung-api" rev="latest.release"/>
+		<dependency org="net.sf.jung" name="jung-io" rev="latest.release"/>
+		<dependency org="com.martiansoftware" name="jsap" rev="latest.release"/>
+		<dependency org="junit" name="junit" rev="latest.release" conf="test"/>
+		<dependency org="emma" name="emma" rev="latest.release" conf="test"/>
+		<dependency org="emma" name="emma_ant" rev="latest.release" conf="test"/>
+
+		<dependency org="ch.qos.logback" name="logback-classic" rev="latest.release"/>
+		<dependency org="commons-configuration" name="commons-configuration" rev="1.8"/>
+		<dependency org="org.apache.commons" name="commons-lang3" rev="latest.release"/>
+	</dependencies>
+</ivy-module>
