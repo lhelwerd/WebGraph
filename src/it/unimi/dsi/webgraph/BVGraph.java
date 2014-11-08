@@ -380,6 +380,12 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 	/** Default minimum interval length. */
 	public final static int DEFAULT_MIN_INTERVAL_LENGTH = 4;
 
+	/** The format for residual compression. 0 means none, 1 means gaps. */
+	protected int residualCompression = DEFAULT_RESIDUAL_COMPRESSION;
+
+	/** Default residual compression format. */
+	public final static int DEFAULT_RESIDUAL_COMPRESSION = 1;
+
 	/** The value of <var>k</var> for &zeta;<sub><var>k</var></sub> coding (for residuals). */
 	protected int zetaK = DEFAULT_ZETA_K;
 
@@ -489,6 +495,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 		result.windowSize = windowSize;
 		result.minIntervalLength = minIntervalLength;
 		result.offsetType = offsetType;
+		result.residualCompression = residualCompression;
 		result.zetaK = zetaK;
 		result.outdegreeCoding = outdegreeCoding;
 		result.blockCoding = blockCoding;
@@ -534,6 +541,14 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 	 */
 	public int windowSize() {
 		return windowSize;
+	}
+
+	/** Returns the residual compression format of this graph. 
+	 *
+	 * @return the residual compression.
+	 */
+	public int residualCompression() {
+		return residualCompression;
 	}
 
 	/* This family of protected methods is used throughout the class to read data
@@ -1369,6 +1384,9 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 		windowSize = Integer.parseInt( properties.getProperty( "windowsize" ) );
 		maxRefCount = Integer.parseInt( properties.getProperty( "maxrefcount" ) );
 		minIntervalLength = Integer.parseInt( properties.getProperty( "minintervallength" ) );
+		if ( properties.getProperty( "residualcompression" ) != null ) {
+			residualCompression = Integer.parseInt( properties.getProperty( "residualcompression" ) );
+		}
 		if ( properties.getProperty( "zetak" ) != null ) zetaK = Integer.parseInt( properties.getProperty( "zetak" ) );
 
 		if ( offsetType < -1 || offsetType > 2 ) throw new IllegalArgumentException( "Illegal offset type " + offsetType );
@@ -1666,11 +1684,21 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 					residualArcs += residualCount;
 					updateBins( currNode, residual, residualCount, residualGapStats );
 				}
-				t = writeResidual( obs, Fast.int2nat( (long)( prev = residual[ 0 ] ) - currNode ) );
+				if ( residualCompression == 1 ) {
+					t = writeResidual( obs, Fast.int2nat( (long)( prev = residual[ 0 ] ) - currNode ) );
+				}
+				else {
+					t = writeResidual( obs, (long)( prev = residual[0] ) );
+				}
 				if ( forReal ) bitsForResiduals += t;
 				for( i = 1; i < residualCount; i++ ) {
 					if ( residual[ i ] == prev ) throw new IllegalArgumentException( "Repeated successor " + prev + " in successor list of node " + currNode );
-					t = writeResidual( obs, residual[ i ] - prev - 1 );
+					if ( residualCompression == 1 ) {
+						t = writeResidual( obs, residual[ i ] - prev - 1 );
+					}
+					else {
+						t = writeResidual( obs, residual[ i ] );
+					}
 					if ( forReal ) bitsForResiduals += t;
 					prev = residual[ i ];
 				}
@@ -1689,6 +1717,31 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 		return (int)( obs.writtenBits() - writtenBitsAtStart );
 	}
 
+	/** Writes the given graph using a given base name.
+	 *
+	 * @param graph a graph to be compressed.
+	 * @param basename a base name.
+	 * @param windowSize the window size (-1 for the default value).
+	 * @param maxRefCount the maximum reference count (-1 for the default value).
+	 * @param minIntervalLength the minimum interval length (-1 for the default value, {@link #NO_INTERVALS} to disable).
+	 * @param residualCompression the residual compression format (-1 for the default value).
+	 * @param zetaK the parameter used for residual &zeta;-coding, if used (-1 for the default value).
+	 * @param flags the flag mask.
+	 * @param pl a progress logger to log the state of compression, or <code>null</code> if no logging is required.
+	 * @throws IOException if some exception is raised while writing the graph.
+	 */
+	public static void store( ImmutableGraph graph, CharSequence basename, int windowSize, int maxRefCount, int minIntervalLength, int residualCompression,
+		int zetaK, int flags, ProgressLogger pl ) throws IOException {
+		BVGraph g = new BVGraph();
+		if ( windowSize != -1 ) g.windowSize = windowSize;
+		if ( maxRefCount != -1 ) g.maxRefCount = maxRefCount;
+		if ( minIntervalLength != -1 ) g.minIntervalLength = minIntervalLength;
+		if ( residualCompression != -1 ) g.residualCompression = residualCompression;
+		if ( zetaK != -1 ) g.zetaK = zetaK;
+		g.setFlags( flags );
+		g.storeInternal( graph, basename, pl );
+	}
+	
 	/** Writes the given graph using a given base name.
 	 *
 	 * @param graph a graph to be compressed.
@@ -1725,7 +1778,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 	 */
 	public static void store( ImmutableGraph graph, CharSequence basename, int windowSize, int maxRefCount, int minIntervalLength, 
 		int zetaK, int flags ) throws IOException {
-		BVGraph.store( graph, basename, windowSize, maxRefCount, minIntervalLength, zetaK, flags, (ProgressLogger)null );
+		BVGraph.store( graph, basename, windowSize, maxRefCount, minIntervalLength, -1, zetaK, flags, (ProgressLogger)null );
 	}
 
 	/** Writes the given graph using a given base name, with all
@@ -1737,7 +1790,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 	 * @throws IOException if some exception is raised while writing the graph.
 	 */
 	public static void store( ImmutableGraph graph, CharSequence basename, ProgressLogger pl ) throws IOException {
-		BVGraph.store( graph, basename, -1, -1, -1, -1, 0, pl );
+		BVGraph.store( graph, basename, -1, -1, -1, -1, -1, 0, pl );
 	}
 
 	
@@ -1931,6 +1984,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 		properties.setProperty( "windowsize", String.valueOf( windowSize ) );
 		properties.setProperty( "maxrefcount", String.valueOf( maxRefCount ) );
 		properties.setProperty( "minintervallength", String.valueOf( minIntervalLength ) );
+		properties.setProperty( "residualcompression", String.valueOf( residualCompression ) );
 		if ( residualCoding == ZETA ) properties.setProperty( "zetak", String.valueOf( zetaK ) );
 		properties.setProperty( "compressionflags", flags2String( flags ).toString() );
 		properties.setProperty( "avgref", format.format( (double)totRef / n ) );
@@ -2051,6 +2105,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 						new FlaggedOption( "windowSize", JSAP.INTEGER_PARSER, String.valueOf( DEFAULT_WINDOW_SIZE ), JSAP.NOT_REQUIRED, 'w', "window-size", "Reference window size (0 to disable)." ),
 						new FlaggedOption( "maxRefCount", JSAP.INTEGER_PARSER, String.valueOf( DEFAULT_MAX_REF_COUNT ), JSAP.NOT_REQUIRED, 'm', "max-ref-count", "Maximum number of backward references (-1 for ∞)." ),
 						new FlaggedOption( "minIntervalLength", JSAP.INTEGER_PARSER, String.valueOf( DEFAULT_MIN_INTERVAL_LENGTH ), JSAP.NOT_REQUIRED, 'i', "min-interval-length", "Minimum length of an interval (0 to disable)." ),
+						new FlaggedOption( "residualCompression", JSAP.INTEGER_PARSER, String.valueOf( DEFAULT_RESIDUAL_COMPRESSION ), JSAP.NOT_REQUIRED, 'r', "residual-compression", "Residual nodes compression format (0 for none)." ),
 						new FlaggedOption( "zetaK", JSAP.INTEGER_PARSER, String.valueOf( DEFAULT_ZETA_K ), JSAP.NOT_REQUIRED, 'k', "zeta-k", "The k parameter for zeta-k codes." ),
 						new FlaggedOption( "graphClass", GraphClassParser.getParser(), null, JSAP.NOT_REQUIRED, 'g', "graph-class", "Forces a Java class for the source graph." ),
 						new Switch( "spec", 's', "spec", "The source is not a basename but rather a specification of the form <ImmutableGraphImplementation>(arg,arg,...)." ),
@@ -2082,6 +2137,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 		int maxRefCount = jsapResult.getInt( "maxRefCount" );
 		if ( maxRefCount == -1 ) maxRefCount = Integer.MAX_VALUE;
 		final int minIntervalLength = jsapResult.getInt( "minIntervalLength" );
+		final int residualCompression = jsapResult.getInt( "residualCompression" );
 		final boolean offline = jsapResult.getBoolean( "offline" );
 		final boolean once = jsapResult.getBoolean( "once" );
 		final boolean spec = jsapResult.getBoolean( "spec" );
@@ -2111,7 +2167,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 
 		if ( dest != null )	{
 			if ( writeOffsets || list || degrees ) throw new IllegalArgumentException( "You cannot specify a destination graph with these options" );
-			BVGraph.store( graph, dest, windowSize, maxRefCount, minIntervalLength, zetaK, flags, pl );
+			BVGraph.store( graph, dest, windowSize, maxRefCount, minIntervalLength, residualCompression, zetaK, flags, pl );
 		}
 		else {
 			if ( ! ( graph instanceof BVGraph ) ) throw new IllegalArgumentException( "The source graph is not a BVGraph" );

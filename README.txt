@@ -25,4 +25,8 @@ java -cp "*" it.unimi.dsi.webgraph.ArcListASCIIGraph -g BVGraph ../sets/uk-2007-
 Specific compression formats:
 
 Gaps compression: -m 0 -w 0 -i 0
-Interval(+gaps): -m 0 -w 0
+Interval: -m 0 -w 0 -r 0
+
+Example:
+java -cp "*" it.unimi.dsi.webgraph.BVGraph -m 0 -w 0 -i 0 ../sets/uk-2002 ../sets/uk-gaps
+
