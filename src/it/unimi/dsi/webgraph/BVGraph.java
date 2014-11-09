@@ -875,16 +875,33 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 		private int next;
 		/** The number of remaining residuals. */
 		private int remaining;
+		/** Residual compression format. */
+		private int residualCompression;
 		
 		private ResidualIntIterator( final BVGraph g, final InputBitStream ibs, final int residualCount, final int x ) {
 			this.g = g;
 			this.remaining = residualCount;
+			this.residualCompression = g.residualCompression();
 			this.ibs = ibs;
 			try {
-				this.next = (int)( x  + Fast.nat2int( g.readLongResidual( ibs ) ) );
+				if ( residualCompression == 1 ) {
+					this.next = (int)( x  + Fast.nat2int( g.readLongResidual( ibs ) ) );
+				}
+				else {
+					this.next = (int)g.readLongResidual( ibs );
+				}
 			}
 			catch ( IOException e ) {
 				throw new RuntimeException( e );
+			}
+		}
+
+		private void readNext() throws IOException {
+			if ( residualCompression == 1 ) {
+				next += g.readResidual( ibs ) + 1;
+			}
+			else {
+				next = g.readResidual( ibs );
 			}
 		}
 
@@ -892,7 +909,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 			if ( remaining == 0 ) return -1;
 			try {
 				final int result = next;
-				if ( --remaining != 0 ) next += g.readResidual( ibs ) + 1;
+				if ( --remaining != 0 ) readNext();
 				return result;
 			} 
 			catch ( IOException e ) {
@@ -908,7 +925,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 				return n;
 			}
 			try {
-				for( int i = n; i-- != 0; ) next += g.readResidual( ibs ) + 1;
+				for ( int i = n; i-- != 0; ) readNext();
 				remaining -= n;
 				return n;
 			}
