@@ -1052,11 +1052,11 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 						}
 						count++;
 					}
-					if ( blockList.size() % 2 == 0 ) {
+					blockCount = blockList.size();
+					if ( blockCount % 2 == 0 ) {
 						copied += count;
 					}
 					extraCount = d - copied;
-					blockCount = blockList.size();
 					block = new int[ blockCount ];
 					for ( i = 0; i < blockCount; i++ ) {
 						block[i] = blockList.get(i).intValue();
@@ -1711,9 +1711,10 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 			}
 			else {
 				// Copy list compression writing
+				int count = 0;
+				boolean isOne = true;
 				if ( blockCount > 0 ) {
-					boolean isOne = true;
-					int count = block[0];
+					count = block[0];
 					for ( int l = 0; l < block[0]; l++ ) {
 						obs.writeBit(isOne);
 					}
@@ -1725,16 +1726,16 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 						isOne = !isOne;
 						count += block[i];
 					}
-					for ( int l = 0; l < refLen - count; l++ ) {
-						obs.writeBit(isOne);
-					}
-
-					if ( forReal ) bitsForBlocks += currLen;
 					if ( STATS ) if ( forReal ) {
 						blockStats.println( block[ 0 ] ); 
 						for( i = 1; i < blockCount; i++ ) blockStats.println( block[ i ] - 1 );
 					}
 				}
+				for ( int l = 0; l < refLen - count; l++ ) {
+					obs.writeBit(isOne);
+				}
+
+				if ( forReal ) bitsForBlocks += currLen;
 			}
 		}
 
@@ -1832,6 +1833,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 	 * @param maxRefCount the maximum reference count (-1 for the default value).
 	 * @param minIntervalLength the minimum interval length (-1 for the default value, {@link #NO_INTERVALS} to disable).
 	 * @param residualCompression the residual compression format (-1 for the default value).
+	 * @param blocksCompression the reference copy list compression format (-1 for the default value).
 	 * @param zetaK the parameter used for residual &zeta;-coding, if used (-1 for the default value).
 	 * @param flags the flag mask.
 	 * @param pl a progress logger to log the state of compression, or <code>null</code> if no logging is required.
