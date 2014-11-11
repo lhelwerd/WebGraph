@@ -1033,13 +1033,10 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 					// The number of successors copied.
 					int copied = 0;
 					int bit = 0;
-					System.out.println( x + "/" + ref + "/" + refIndex + ". " + copyListLength );
 					for ( int c = 0; c < copyListLength; c++ ) {
 						bit = ibs.readBit();
-						System.out.println( bit );
 						if ( i == 0 && count == 0 && bit == 0 && isOne ) {
 							// case: bit is zero at start
-							System.out.println( "C0" );
 							blockList.add( 0 );
 							i++;
 							isOne = false;
@@ -1047,9 +1044,10 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 						else if ( (isOne && bit == 0) || (!isOne && bit == 1) ) {
 							// case: end of "block"
 							isOne = !isOne;
-							System.out.println( "C" + (count - (i == 0 ? 0 : 1)) );
 							blockList.add( count - (i == 0 ? 0 : 1) );
-							if ( i % 2 == 0 ) copied += blockList.get(i);
+							if ( i % 2 == 0 ) {
+								copied += count;
+							}
 							count = 0;
 							i++;
 						}
@@ -1058,10 +1056,10 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 					if ( blockList.size() % 2 == 0 ) {
 						copied += count;
 					}
-					System.out.println( "Copied: " + copied + ", deg: " + d );
 					extraCount = d - copied;
-					block = new int[ blockList.size() ];
-					for ( i = 0; i < blockList.size(); i++ ) {
+					blockCount = blockList.size();
+					block = new int[ blockCount ];
+					for ( i = 0; i < blockCount; i++ ) {
 						block[i] = blockList.get(i).intValue();
 					}
 				}
