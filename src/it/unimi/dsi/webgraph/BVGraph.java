@@ -51,6 +51,7 @@ import java.nio.channels.FileChannel.MapMode;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Formatter;
 import java.util.Locale;
 import java.util.NoSuchElementException;
@@ -386,6 +387,12 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 	/** Default residual compression format. */
 	public final static int DEFAULT_RESIDUAL_COMPRESSION = 1;
 
+	/** The format for blocks compression. 0 means list, 1 means blocks. */
+	protected int blocksCompression = DEFAULT_BLOCKS_COMPRESSION;
+
+	/** Default blocks compression format. */
+	public final static int DEFAULT_BLOCKS_COMPRESSION = 1;
+
 	/** The value of <var>k</var> for &zeta;<sub><var>k</var></sub> coding (for residuals). */
 	protected int zetaK = DEFAULT_ZETA_K;
 
@@ -496,6 +503,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 		result.minIntervalLength = minIntervalLength;
 		result.offsetType = offsetType;
 		result.residualCompression = residualCompression;
+		result.blocksCompression = blocksCompression;
 		result.zetaK = zetaK;
 		result.outdegreeCoding = outdegreeCoding;
 		result.blockCoding = blockCoding;
@@ -549,6 +557,14 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 	 */
 	public int residualCompression() {
 		return residualCompression;
+	}
+
+	/** Returns the blocks compression format of this graph. 
+	 *
+	 * @return the blocks compression.
+	 */
+	public int blocksCompression() {
+		return blocksCompression;
 	}
 
 	/* This family of protected methods is used throughout the class to read data
@@ -991,19 +1007,64 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 
 			refIndex = ( x - ref + cyclicBufferSize ) % cyclicBufferSize; // The index in window[] of the node we are referring to (it makes sense only if ref>0).
 
+			System.out.println( x + "/" + ref + "/" + refIndex + "/" + d + "/" + window + "/" + windowSize );
 			if ( ref > 0 ) { // This catches both no references at all and no reference specifically for this node.
-				if ( ( blockCount = readBlockCount( ibs ) ) !=  0 ) block = new int[ blockCount ];
+				if ( blocksCompression == 1 ) {
+					if ( ( blockCount = readBlockCount( ibs ) ) !=  0 ) block = new int[ blockCount ];
 
-				int copied = 0, total = 0; // The number of successors copied, and the total number of successors specified in some copy block.
-				for( i = 0; i < blockCount; i++ ) {
-					block[ i ] = readBlock( ibs ) + ( i == 0 ? 0 : 1 );
-					total += block[ i ];
-					if ( i % 2 == 0 ) copied += block[ i ];
+					int copied = 0, total = 0; // The number of successors copied, and the total number of successors specified in some copy block.
+					for( i = 0; i < blockCount; i++ ) {
+						block[ i ] = readBlock( ibs ) + ( i == 0 ? 0 : 1 );
+						total += block[ i ];
+						if ( i % 2 == 0 ) copied += block[ i ];
+					}
+					// If the block count is even, we must compute the number of successors copied implicitly.
+					//if ( window == null ) nextOffset = offsets.getLong( x - ref );
+					if ( blockCount % 2 == 0 ) copied += ( window != null ? outd[ refIndex ] : outdegreeInternal( x - ref ) ) - total;
+					extraCount = d - copied;
 				}
-				// If the block count is even, we must compute the number of successors copied implicitly.
-				//if ( window == null ) nextOffset = offsets.getLong( x - ref );
-				if ( blockCount % 2 == 0 ) copied += ( window != null ? outd[ refIndex ] : outdegreeInternal( x - ref ) ) - total;
-				extraCount = d - copied;
+				else {
+					// Copy list compression reading
+					i = 0;
+					boolean isOne = true;
+					int count = 0;
+					int copyListLength = ( window != null ? outd[ refIndex ] : outdegreeInternal( x - ref ) );
+					ArrayList<Integer> blockList = new ArrayList<Integer>();
+					// The number of successors copied.
+					int copied = 0;
+					int bit = 0;
+					System.out.println( x + "/" + ref + "/" + refIndex + ". " + copyListLength );
+					for ( int c = 0; c < copyListLength; c++ ) {
+						bit = ibs.readBit();
+						System.out.println( bit );
+						if ( i == 0 && count == 0 && bit == 0 && isOne ) {
+							// case: bit is zero at start
+							System.out.println( "C0" );
+							blockList.add( 0 );
+							i++;
+							isOne = false;
+						}
+						else if ( (isOne && bit == 0) || (!isOne && bit == 1) ) {
+							// case: end of "block"
+							isOne = !isOne;
+							System.out.println( "C" + (count - (i == 0 ? 0 : 1)) );
+							blockList.add( count - (i == 0 ? 0 : 1) );
+							if ( i % 2 == 0 ) copied += blockList.get(i);
+							count = 0;
+							i++;
+						}
+						count++;
+					}
+					if ( blockList.size() % 2 == 0 ) {
+						copied += count;
+					}
+					System.out.println( "Copied: " + copied + ", deg: " + d );
+					extraCount = d - copied;
+					block = new int[ blockList.size() ];
+					for ( i = 0; i < blockList.size(); i++ ) {
+						block[i] = blockList.get(i).intValue();
+					}
+				}
 			}
 			else extraCount = d;
 			
@@ -1404,6 +1465,9 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 		if ( properties.getProperty( "residualcompression" ) != null ) {
 			residualCompression = Integer.parseInt( properties.getProperty( "residualcompression" ) );
 		}
+		if ( properties.getProperty( "blockscompression" ) != null ) {
+			blocksCompression = Integer.parseInt( properties.getProperty( "blockscompression" ) );
+		}
 		if ( properties.getProperty( "zetak" ) != null ) zetaK = Integer.parseInt( properties.getProperty( "zetak" ) );
 
 		if ( offsetType < -1 || offsetType > 2 ) throw new IllegalArgumentException( "Illegal offset type " + offsetType );
@@ -1627,23 +1691,52 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 
 		// Then, if the reference is not void we write the length of the copy list.
 		if ( ref != 0 ) {
-			t = writeBlockCount( obs, blockCount );
-			if ( forReal ) bitsForBlocks += t;
-			
 			if ( STATS ) if ( forReal ) blockCountStats.println( blockCount );
-
-			// Then, we write the copy list; all lengths except the first one are decremented.
-			if ( blockCount > 0 ) {
-				t = writeBlock( obs, block[ 0 ] );
+			if ( blocksCompression == 1 ) {
+				t = writeBlockCount( obs, blockCount );
 				if ( forReal ) bitsForBlocks += t;
-				for( i = 1; i < blockCount; i++ ) { 
-					t = writeBlock( obs, block[ i ] - 1 );
-					if ( forReal ) bitsForBlocks += t;
-				}
 				
-				if ( STATS ) if ( forReal ) {
-					blockStats.println( block[ 0 ] ); 
-					for( i = 1; i < blockCount; i++ ) blockStats.println( block[ i ] - 1 );
+
+				// Then, we write the copy list; all lengths except the first one are decremented.
+				if ( blockCount > 0 ) {
+					t = writeBlock( obs, block[ 0 ] );
+					if ( forReal ) bitsForBlocks += t;
+					for( i = 1; i < blockCount; i++ ) { 
+						t = writeBlock( obs, block[ i ] - 1 );
+						if ( forReal ) bitsForBlocks += t;
+					}
+				
+					if ( STATS ) if ( forReal ) {
+						blockStats.println( block[ 0 ] ); 
+						for( i = 1; i < blockCount; i++ ) blockStats.println( block[ i ] - 1 );
+					}
+				}
+			}
+			else {
+				// Copy list compression writing
+				if ( blockCount > 0 ) {
+					boolean isOne = true;
+					int count = block[0];
+					for ( int l = 0; l < block[0]; l++ ) {
+						obs.writeBit(isOne);
+					}
+					isOne = false;
+					for ( i = 1; i < blockCount; i++ ) {
+						for ( int l = 0; l < block[ i ]; l++ ) {
+							obs.writeBit(isOne);
+						}
+						isOne = !isOne;
+						count += block[i];
+					}
+					for ( int l = 0; l < refLen - count; l++ ) {
+						obs.writeBit(isOne);
+					}
+
+					if ( forReal ) bitsForBlocks += currLen;
+					if ( STATS ) if ( forReal ) {
+						blockStats.println( block[ 0 ] ); 
+						for( i = 1; i < blockCount; i++ ) blockStats.println( block[ i ] - 1 );
+					}
 				}
 			}
 		}
@@ -1747,13 +1840,13 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 	 * @param pl a progress logger to log the state of compression, or <code>null</code> if no logging is required.
 	 * @throws IOException if some exception is raised while writing the graph.
 	 */
-	public static void store( ImmutableGraph graph, CharSequence basename, int windowSize, int maxRefCount, int minIntervalLength, int residualCompression,
-		int zetaK, int flags, ProgressLogger pl ) throws IOException {
+	public static void store( ImmutableGraph graph, CharSequence basename, int windowSize, int maxRefCount, int minIntervalLength, int residualCompression, int blocksCompression, int zetaK, int flags, ProgressLogger pl ) throws IOException {
 		BVGraph g = new BVGraph();
 		if ( windowSize != -1 ) g.windowSize = windowSize;
 		if ( maxRefCount != -1 ) g.maxRefCount = maxRefCount;
 		if ( minIntervalLength != -1 ) g.minIntervalLength = minIntervalLength;
 		if ( residualCompression != -1 ) g.residualCompression = residualCompression;
+		if ( blocksCompression != -1 ) g.blocksCompression = blocksCompression;
 		if ( zetaK != -1 ) g.zetaK = zetaK;
 		g.setFlags( flags );
 		g.storeInternal( graph, basename, pl );
@@ -1795,7 +1888,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 	 */
 	public static void store( ImmutableGraph graph, CharSequence basename, int windowSize, int maxRefCount, int minIntervalLength, 
 		int zetaK, int flags ) throws IOException {
-		BVGraph.store( graph, basename, windowSize, maxRefCount, minIntervalLength, -1, zetaK, flags, (ProgressLogger)null );
+		BVGraph.store( graph, basename, windowSize, maxRefCount, minIntervalLength, -1, -1, zetaK, flags, (ProgressLogger)null );
 	}
 
 	/** Writes the given graph using a given base name, with all
@@ -1807,7 +1900,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 	 * @throws IOException if some exception is raised while writing the graph.
 	 */
 	public static void store( ImmutableGraph graph, CharSequence basename, ProgressLogger pl ) throws IOException {
-		BVGraph.store( graph, basename, -1, -1, -1, -1, -1, 0, pl );
+		BVGraph.store( graph, basename, -1, -1, -1, -1, -1, -1, 0, pl );
 	}
 
 	
@@ -2002,6 +2095,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 		properties.setProperty( "maxrefcount", String.valueOf( maxRefCount ) );
 		properties.setProperty( "minintervallength", String.valueOf( minIntervalLength ) );
 		properties.setProperty( "residualcompression", String.valueOf( residualCompression ) );
+		properties.setProperty( "blockscompression", String.valueOf( blocksCompression ) );
 		if ( residualCoding == ZETA ) properties.setProperty( "zetak", String.valueOf( zetaK ) );
 		properties.setProperty( "compressionflags", flags2String( flags ).toString() );
 		properties.setProperty( "avgref", format.format( (double)totRef / n ) );
@@ -2123,6 +2217,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 						new FlaggedOption( "maxRefCount", JSAP.INTEGER_PARSER, String.valueOf( DEFAULT_MAX_REF_COUNT ), JSAP.NOT_REQUIRED, 'm', "max-ref-count", "Maximum number of backward references (-1 for ∞)." ),
 						new FlaggedOption( "minIntervalLength", JSAP.INTEGER_PARSER, String.valueOf( DEFAULT_MIN_INTERVAL_LENGTH ), JSAP.NOT_REQUIRED, 'i', "min-interval-length", "Minimum length of an interval (0 to disable)." ),
 						new FlaggedOption( "residualCompression", JSAP.INTEGER_PARSER, String.valueOf( DEFAULT_RESIDUAL_COMPRESSION ), JSAP.NOT_REQUIRED, 'r', "residual-compression", "Residual nodes compression format (0 for none)." ),
+						new FlaggedOption( "blocksCompression", JSAP.INTEGER_PARSER, String.valueOf( DEFAULT_BLOCKS_COMPRESSION ), JSAP.NOT_REQUIRED, 'b', "blocks-compression", "Copy blocks compression format (0 for copy list)." ),
 						new FlaggedOption( "zetaK", JSAP.INTEGER_PARSER, String.valueOf( DEFAULT_ZETA_K ), JSAP.NOT_REQUIRED, 'k', "zeta-k", "The k parameter for zeta-k codes." ),
 						new FlaggedOption( "graphClass", GraphClassParser.getParser(), null, JSAP.NOT_REQUIRED, 'g', "graph-class", "Forces a Java class for the source graph." ),
 						new Switch( "spec", 's', "spec", "The source is not a basename but rather a specification of the form <ImmutableGraphImplementation>(arg,arg,...)." ),
@@ -2155,6 +2250,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 		if ( maxRefCount == -1 ) maxRefCount = Integer.MAX_VALUE;
 		final int minIntervalLength = jsapResult.getInt( "minIntervalLength" );
 		final int residualCompression = jsapResult.getInt( "residualCompression" );
+		final int blocksCompression = jsapResult.getInt( "blocksCompression" );
 		final boolean offline = jsapResult.getBoolean( "offline" );
 		final boolean once = jsapResult.getBoolean( "once" );
 		final boolean spec = jsapResult.getBoolean( "spec" );
@@ -2184,7 +2280,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 
 		if ( dest != null )	{
 			if ( writeOffsets || list || degrees ) throw new IllegalArgumentException( "You cannot specify a destination graph with these options" );
-			BVGraph.store( graph, dest, windowSize, maxRefCount, minIntervalLength, residualCompression, zetaK, flags, pl );
+			BVGraph.store( graph, dest, windowSize, maxRefCount, minIntervalLength, residualCompression, blocksCompression, zetaK, flags, pl );
 		}
 		else {
 			if ( ! ( graph instanceof BVGraph ) ) throw new IllegalArgumentException( "The source graph is not a BVGraph" );
