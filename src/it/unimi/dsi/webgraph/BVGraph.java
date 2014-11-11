@@ -1007,7 +1007,6 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 
 			refIndex = ( x - ref + cyclicBufferSize ) % cyclicBufferSize; // The index in window[] of the node we are referring to (it makes sense only if ref>0).
 
-			System.out.println( x + "/" + ref + "/" + refIndex + "/" + d + "/" + window + "/" + windowSize );
 			if ( ref > 0 ) { // This catches both no references at all and no reference specifically for this node.
 				if ( blocksCompression == 1 ) {
 					if ( ( blockCount = readBlockCount( ibs ) ) !=  0 ) block = new int[ blockCount ];
@@ -1044,7 +1043,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 						else if ( (isOne && bit == 0) || (!isOne && bit == 1) ) {
 							// case: end of "block"
 							isOne = !isOne;
-							blockList.add( count - (i == 0 ? 0 : 1) );
+							blockList.add( count );
 							if ( i % 2 == 0 ) {
 								copied += count;
 							}
