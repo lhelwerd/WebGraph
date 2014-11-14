@@ -1656,7 +1656,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 					/* If while copying we trespass the current element of the reference list,
 					   we must stop copying. */
 					blocks.add( currBlockLen );
-					blocks.add( currBlockFlag );
+					blocksFlags.add( currBlockFlag );
 					copying = false;
 					currBlockLen = 0;
 					currBlockFlag = 1;
