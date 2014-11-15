@@ -1624,7 +1624,6 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 		// k is the index of the next successor of the reference node we must examine
 		// copying is true iff we are producing a copy block (instead of an ignore block)
 		// currBlockLen is the number of entries (in the reference list) we have already copied/ignored (in the current block)
-		//System.out.print( "P" + currNode + ": " + Arrays.toString(Arrays.copyOfRange(currList, 0, currLen)) + " " + Arrays.toString(Arrays.copyOfRange(refList, 0, refLen)) );
 		while( j < currLen && k < refLen ) {
 			if ( copying ) { // First case: we are currectly copying entries from the reference list
 				// Copy flags compression processing
@@ -1636,7 +1635,6 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 						currBlockLen = 0;
 					}
 					currBlockFlag = 2;
-					//System.out.print( currBlockFlag );
 					j++;
 					k++;
 					currBlockLen++;
@@ -1649,7 +1647,6 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 						currBlockLen = 0;
 					}
 					currBlockFlag = 3;
-					//System.out.print( currBlockFlag );
 					j++;
 					k++;
 					currBlockLen++;
@@ -1658,9 +1655,10 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 				else if ( currList[ j ] > refList[ k ] ) {
 					/* If while copying we trespass the current element of the reference list,
 					   we must stop copying. */
-					blocks.add( currBlockLen );
-					blockFlags.add( currBlockFlag );
-					//System.out.print( currBlockFlag );
+					if ( currBlockLen > 0 ) {
+						blocks.add( currBlockLen );
+						blockFlags.add( currBlockFlag );
+					}
 					k++;
 					copying = false;
 					currBlockLen = 1;
@@ -1672,20 +1670,15 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 					   and move on. j gets increased. */
 					extras.add( currList[ j++ ] );
 				}
-				else if ( blocksCompression == 2 && currBlockFlag != 0 ) {
-					blocks.add( currBlockLen );
-					blockFlags.add( currBlockFlag );
-					//System.out.print( currBlockFlag );
-					currBlockLen = 0;
-					currBlockFlag = 0;
-					j++;
-					k++;
-					currBlockLen++;
-					if ( forReal ) copiedArcs++;
-				}
 				else { // currList[ j ] == refList[ k ]
 					/* If the current elements of the two lists are equal, we just increase the block length. 
 					   both j and k get increased. */
+					if ( currBlockFlag != 0 && currBlockLen > 0 ) {
+						blocks.add( currBlockLen );
+						blockFlags.add( currBlockFlag );
+						currBlockLen = 0;
+					}
+					currBlockFlag = 0;
 					j++;
 					k++;
 					currBlockLen++;
@@ -1704,7 +1697,6 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 				else if ( blocksCompression == 2 && currList[j] == refList[k]+2 ) {
 					blocks.add( currBlockLen );
 					blockFlags.add( currBlockFlag );
-					//System.out.print( currBlockFlag );
 					copying = true;
 					currBlockLen = 0;
 					currBlockFlag = 3;
@@ -1715,7 +1707,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 					extras.add( currList[ j++ ] );
 				}
 				else if ( currList[ j ] > refList[ k ] ) {
-					/* If we trespassed the currented element of the reference list, we
+					/* If we trespassed the current element of the reference list, we
 					   increase the block length. k gets increased. */
 					k++;
 					currBlockLen++;
@@ -1724,7 +1716,6 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 					/* If we found a match we flush the current block and start a new copying phase. */
 					blocks.add( currBlockLen );
 					blockFlags.add( currBlockFlag );
-					//System.out.print( currBlockFlag );
 					copying = true;
 					currBlockLen = 0;
 					currBlockFlag = 0;
@@ -1735,12 +1726,10 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 		/* We do not record the last block. The only case when we have to enqueue the last block's length
 		 * is when we were copying and we did not copy up to the end of the reference list.
 		 */
-		if ( copying && k < refLen ) {
+		if ( copying && (k < refLen || currBlockFlag != 0) ) {
 			blocks.add( currBlockLen );
 			blockFlags.add( currBlockFlag );
-			//System.out.print( currBlockFlag );
 		}
-		//System.out.print("\n");
 
 		// If there are still missing elements, we add them to the extra list.
 		while( j < currLen ) extras.add( currList[ j++ ] );
@@ -1782,16 +1771,13 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 			else if ( blocksCompression == 2 ) {
 				// Copy flags compression writing
 				int count = 0;
-				//System.out.print( currNode + ": " );
 				if ( blockCount > 0 ) {
 					count = block[0];
 					for ( int l = 0; l < block[0]; l++ ) {
-						//System.out.print( blockFlags.get(0) );
 						obs.writeInt(blockFlags.get(0), 2);
 					}
 					for ( i = 1; i < blockCount; i++ ) {
 						for ( int l = 0; l < block[ i ]; l++ ) {
-							//System.out.print( blockFlags.get(i) );
 							obs.writeInt(blockFlags.get(i), 2);
 						}
 						count += block[i];
@@ -1802,10 +1788,8 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 					}
 				}
 				for ( int l = 0; l < refLen - count; l++ ) {
-					//System.out.print( 1 );
 					obs.writeInt(1, 2);
 				}
-				//System.out.print("\n");
 
 				if ( forReal ) bitsForBlocks += currLen * 2;
 			}
