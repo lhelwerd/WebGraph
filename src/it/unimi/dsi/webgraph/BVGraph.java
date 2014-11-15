@@ -1776,7 +1776,9 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 		/* We do not record the last block. The only case when we have to enqueue the last block's length
 		 * is when we were copying and we did not copy up to the end of the reference list.
 		 */
-		if ( copying && (k < refLen || currBlockFlag != 1) ) {
+		if ( copying &&
+			(k < refLen || (blocksCompression == 2 && currBlockFlag != 1))
+		) {
 			blocks.add( currBlockLen );
 			blockFlags.add( currBlockFlag );
 		}
