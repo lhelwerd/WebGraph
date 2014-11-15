@@ -985,7 +985,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 		final int ref, refIndex;
 		int i, extraCount, blockCount = 0;
 		int[] block = null, left = null, len = null;
-		int[] flags = null;
+		int[] flagBlocks = null;
 
 		if ( x < 0 || x >= n ) throw new IllegalArgumentException( "Node index out of range:" + x );
 
@@ -1058,10 +1058,10 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 					blockCount = blockList.size();
 					extraCount = d - copied;
 					block = new int[ blockCount ];
-					flags = new int[ blockCount ];
+					flagBlocks = new int[ blockCount ];
 					for ( i = 0; i < blockCount; i++ ) {
 						block[i] = blockList.get(i).intValue();
-						flags[i] = flagList.get(i).intValue();
+						flagBlocks[i] = flagList.get(i).intValue();
 					}
 				}
 				else {
@@ -1157,14 +1157,14 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 				
 			final LazyIntIterator blockIterator = ref <= 0
 				? null 
-				: (flags == null
+				: (flagBlocks == null
 				? new MaskedIntIterator(
 										// ...block for masking copy and...
 										block, 
 										// ...the reference list (either computed recursively or stored in window)...
 										refIterator
 										)
-				: new FlaggedIntIterator( block, flags, refIterator )
+				: new FlaggedIntIterator( block, flagBlocks, refIterator )
 			);
 			
 			if ( ref <= 0 ) return extraIterator;
@@ -1709,10 +1709,13 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 						blocks.add( currBlockLen );
 						blockFlags.add( currBlockFlag );
 					}
-					k++;
 					copying = false;
-					currBlockLen = 0;
 					currBlockFlag = 1;
+					currBlockLen = 0;
+					if ( blocksCompression == 2 ) {
+						currBlockLen = 1;
+						k++;
+					}
 				}
 				else if ( currList[ j ] < refList[ k ] ) {
 					/* If while copying we find a non-matching element of the reference list which
