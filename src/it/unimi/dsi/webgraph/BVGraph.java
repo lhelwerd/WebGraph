@@ -985,6 +985,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 		final int ref, refIndex;
 		int i, extraCount, blockCount = 0;
 		int[] block = null, left = null, len = null;
+		int[] flags = null;
 
 		if ( x < 0 || x >= n ) throw new IllegalArgumentException( "Node index out of range:" + x );
 
@@ -1021,6 +1022,47 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 					//if ( window == null ) nextOffset = offsets.getLong( x - ref );
 					if ( blockCount % 2 == 0 ) copied += ( window != null ? outd[ refIndex ] : outdegreeInternal( x - ref ) ) - total;
 					extraCount = d - copied;
+				}
+				else if ( blocksCompression == 2 ) {
+					// Copy flags compression reading
+					i = 0;
+					int count = 0;
+					int copyListLength = ( window != null ? outd[ refIndex ] : outdegreeInternal( x - ref ) );
+					ArrayList<Integer> blockList = new ArrayList<Integer>();
+					ArrayList<Integer> flagList = new ArrayList<Integer>();
+					// The number of successors copied.
+					int copied = 0;
+					int flag = 0;
+					int lastFlag = 0;
+					for ( int c = 0; c < copyListLength; c++ ) {
+						flag = ibs.readInt(2);
+						if ( lastFlag != flag && count > 0 ) {
+							blockList.add( count );
+							flagList.add( lastFlag );
+							if ( lastFlag != 1 ) {
+								copied += count;
+							}
+							count = 0;
+							i++;
+						}
+						lastFlag = flag;
+						count++;
+					}
+					if ( count > 0 ) {
+						blockList.add( count );
+						flagList.add( flag );
+						if ( flag != 1 ) {
+							copied += count;
+						}
+					}
+					blockCount = blockList.size();
+					extraCount = d - copied;
+					block = new int[ blockCount ];
+					flags = new int[ blockCount ];
+					for ( i = 0; i < blockCount; i++ ) {
+						block[i] = blockList.get(i).intValue();
+						flags[i] = flagList.get(i).intValue();
+					}
 				}
 				else {
 					// Copy list compression reading
@@ -1104,18 +1146,26 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 					: (LazyIntIterator)new MergedIntIterator( new IntIntervalSequenceIterator( left, len ), residualIterator )
 					);
 
+			final LazyIntIterator refIterator = ref <= 0
+				? null
+				: (window != null 
+				? LazyIntIterators.wrap( window[ refIndex ], outd[ refIndex ] )
+				: 
+				// This is the recursive lazy part of the construction.
+				successors( x - ref, isMemory ? new InputBitStream( graphMemory ) : new InputBitStream( isMapped ? mappedGraphStream.copy() : new FastMultiByteArrayInputStream( graphStream ), 0 ), null, null )
+			);
+				
 			final LazyIntIterator blockIterator = ref <= 0
 				? null 
-				: new MaskedIntIterator(
+				: (flags == null
+				? new MaskedIntIterator(
 										// ...block for masking copy and...
 										block, 
 										// ...the reference list (either computed recursively or stored in window)...
-										window != null 
-										? LazyIntIterators.wrap( window[ refIndex ], outd[ refIndex ] )
-										: 
-											// This is the recursive lazy part of the construction.
-											successors( x - ref, isMemory ? new InputBitStream( graphMemory ) : new InputBitStream( isMapped ? mappedGraphStream.copy() : new FastMultiByteArrayInputStream( graphStream ), 0 ), null, null )
-										);
+										refIterator
+										)
+				: new FlaggedIntIterator( block, flags, refIterator )
+			);
 			
 			if ( ref <= 0 ) return extraIterator;
 			else return extraIterator == null
