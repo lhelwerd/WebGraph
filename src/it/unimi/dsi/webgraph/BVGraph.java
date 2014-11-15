@@ -1824,11 +1824,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 				// Copy flags compression writing
 				int count = 0;
 				if ( blockCount > 0 ) {
-					count = block[0];
-					for ( int l = 0; l < block[0]; l++ ) {
-						obs.writeInt(blockFlags.get(0), 2);
-					}
-					for ( i = 1; i < blockCount; i++ ) {
+					for ( i = 0; i < blockCount; i++ ) {
 						for ( int l = 0; l < block[ i ]; l++ ) {
 							obs.writeInt(blockFlags.get(i), 2);
 						}
@@ -1850,12 +1846,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 				int count = 0;
 				boolean isOne = true;
 				if ( blockCount > 0 ) {
-					count = block[0];
-					for ( int l = 0; l < block[0]; l++ ) {
-						obs.writeBit(isOne);
-					}
-					isOne = false;
-					for ( i = 1; i < blockCount; i++ ) {
+					for ( i = 0; i < blockCount; i++ ) {
 						for ( int l = 0; l < block[ i ]; l++ ) {
 							obs.writeBit(isOne);
 						}
