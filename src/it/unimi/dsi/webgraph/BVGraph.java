@@ -1705,13 +1705,13 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 				else if ( currList[ j ] > refList[ k ] ) {
 					/* If while copying we trespass the current element of the reference list,
 					   we must stop copying. */
-					if ( currBlockLen > 0 ) {
+					if ( blocksCompression != 2 || currBlockLen > 0 ) {
 						blocks.add( currBlockLen );
 						blockFlags.add( currBlockFlag );
 					}
 					k++;
 					copying = false;
-					currBlockLen = 1;
+					currBlockLen = 0;
 					currBlockFlag = 1;
 				}
 				else if ( currList[ j ] < refList[ k ] ) {
@@ -1723,7 +1723,7 @@ public class BVGraph extends ImmutableGraph implements CompressionFlags {
 				else { // currList[ j ] == refList[ k ]
 					/* If the current elements of the two lists are equal, we just increase the block length. 
 					   both j and k get increased. */
-					if ( currBlockFlag != 0 && currBlockLen > 0 ) {
+					if ( blocksCompression == 2 && currBlockFlag != 0 && currBlockLen > 0 ) {
 						blocks.add( currBlockLen );
 						blockFlags.add( currBlockFlag );
 						currBlockLen = 0;
