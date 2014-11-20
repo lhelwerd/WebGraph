@@ -17,9 +17,10 @@ if [[ "x$mvn" = "x" ]]; then
 	echo "You can now use mvn itself (at least until the end of the session)."
 	echo "You can also add the following lines to your .bashrc to keep this:"
 	echo "export JAVA_HOME=\"/usr/lib/jvm/java-7-openjdk-amd64\""
-	echo "export M2_HOME=\"$dir\""
+	echo "export M2_HOME=\"$CWD/maven\""
 	echo "export M2=\"\$M2_HOME/bin\""
 	echo "PATH=\"\$M2:\$PATH\""
+	mvn="$CWD/maven/mvn"
 fi
 
 if [[ "x$@" = "x" ]]; then
