@@ -20,7 +20,7 @@ if [[ "x$mvn" = "x" ]]; then
 	echo "export M2_HOME=\"$CWD/maven\""
 	echo "export M2=\"\$M2_HOME/bin\""
 	echo "PATH=\"\$M2:\$PATH\""
-	mvn="$CWD/maven/mvn"
+	mvn="$CWD/maven/bin/mvn"
 fi
 
 if [[ "x$@" = "x" ]]; then
