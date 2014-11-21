@@ -13,6 +13,8 @@ java -cp "*" it.unimi.dsi.webgraph.BVGraph -o -m 1 ../sets/uk-2007-05@100000 ../
 -m is reference length
 -w is window size : 0 skips reference compression (copy list or blocks)
 -i is interval minimum length : 0 skips interval compression
+-r is residual compression: 0 skips gaps compression, 1 performs gaps compression (default)
+-b is copy block compression: 0 is copy list, 1 is copy blocks (default), 2 is copy flags
 We might be able to set to 0 or -1 to make sure they are not used: Algorithms tested separately?
 
 Create successors list: (Naive Adjacency List)
@@ -34,3 +36,12 @@ Copy flags: -i 0 -r 0 -b 2
 Example:
 java -cp "*" it.unimi.dsi.webgraph.BVGraph -m 0 -w 0 -i 0 ../sets/uk-2002 ../sets/uk-gaps
 
+
+Speed test:
+Default: sequential testing
+java -cp "*" it.unimi.dsi.webgraph.test.SpeedTest -g BVGraph ../sets/uk-list
+
+Random access testing: -r, requires a sample size parameter
+java -cp "*" it.unimi.dsi.webgraph.test.SpeedTest -g BVGraph -r 100000 ../sets/uk-list
+
+Make sure there's also an .offsets file
