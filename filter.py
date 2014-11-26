@@ -9,7 +9,7 @@ from collections import OrderedDict
 class Dataset:
     def __init__(self, name):
         self.name = name
-        self.compressions = {}
+        self.compressions = OrderedDict()
 
 class Compression:
     def __init__(self, name, params=None):
@@ -125,52 +125,65 @@ def main(argv):
 
     print("""\\documentclass{article}
 \\usepackage{array}
-\\newcolumntype{x}[1]{>{\\centering\\arraybackslash}p{#1}}
+\\newcolumntype{x}[1]{>{\\arraybackslash}p{#1}}
 \\usepackage{tikz}
 \\newcommand\diag[4]{%
-  \\multicolumn{1}{|p{#2}|}{\hskip-\\tabcolsep
+  \\multicolumn{1}{|p{#2}|}{\\vskip.5\\baselineskip\\vskip-\\tabcolsep\\hskip-\\tabcolsep
     $\\vcenter{\\begin{tikzpicture}[baseline=0,anchor=south west,inner sep=#1]
     \\path[use as bounding box] (0,0) rectangle (#2+2\\tabcolsep,\\baselineskip);
     \\node[minimum width={#2+2\\tabcolsep-\\pgflinewidth},
-        minimum  height=\\baselineskip+\\extrarowheight-\\pgflinewidth] (box) {};
+        minimum height=2\\baselineskip+\\extrarowheight-\\pgflinewidth] (box) {};
     \\draw[line cap=round] (box.north west) -- (box.south east);
     \\node[anchor=south west] at (box.south west) {#3};
     \\node[anchor=north east] at (box.north east) {#4};
 \\end{tikzpicture}}$\hskip-\\tabcolsep}%
 }
 \\begin{document}""")
+
+    metric = "storetime"
+    metric_name = "Time to compress from memory to the compressed format."
+
     first = next(sets.itervalues())
     lengths = dict([(c, 1) for c in types.keys()])
     for compression, vals in first.compressions.iteritems():
         lengths[compression] = len(vals)
 
-    columnspec = "|x{3cm}" + ("|l" * sum(lengths.itervalues())) + "|"
+    columnspec = "|x{2.5cm}" + ("|l" * sum(lengths.itervalues())) + "|"
     print("""
 \\begin{table}[h]
     \\centering
-    {\\footnotesize \\begin{tabular}{""" + columnspec + """} \\hline
-        Algorithm & """ + " & ".join(["\multicolumn{" + str(lengths[c]) + "}{c|}{" + types[c] + "}" for c in types.keys()]) + """ \\\\ \\hline""")
+    {\\setlength{\\tabcolsep}{2pt}\\footnotesize \\begin{tabular}{""" + columnspec + """} \\hline
+\multicolumn{1}{|r|}{Algorithm} & """ + " & ".join(["\multicolumn{" + str(lengths[c]) + "}{c|}{" + types[c] + "}" for c in types.keys()]) + """ \\\\ \\hline""")
 
-    print("\diag{.025em}{3cm}{Dataset}{Parameters}", end="")
+    print("\diag{.2em}{2.5cm}{Dataset}{Parameters}", end="")
 
     for compression in types.iterkeys():
         if compression not in first.compressions:
-            print(" & " * lengths[compression], end="")
+            print(" &" * lengths[compression], end="")
         else:
             for params in first.compressions[compression].keys():
-                print(" & ", end="")
+                print(" &", end="")
                 if params is not None:
-                    print("\\begin{tabular}[t]{@{}c@{}}" + "\\\\".join(["${} = {}$".format(params[i], "\\infty" if params[i+1] == "-" else params[i+1]) for i in range(0, (len(params)/2)*2, 2)]) + "\\end{tabular}", end="")
+                    print(" \\begin{tabular}[t]{@{}c@{}}" + "\\\\".join(["${} = {}$".format(params[i], "\\infty" if params[i+1] == "-" else params[i+1]) for i in range(0, (len(params)/2)*2, 2)]) + "\\end{tabular}", end="")
 
-    print("\\\\ \\hline")
+    print(" \\\\ \\hline")
 
     for name in sets.keys():
-        print(name + " & " * sum(lengths.values()) + "\\\\ \\hline")
+        print(name, end="")
+        for compression in types.iterkeys():
+            if compression not in sets[name].compressions:
+                print(" &" * lengths[compression], end="")
+            else:
+                for p in sets[name].compressions[compression].itervalues():
+                    print(" &", end="")
+                    if metric in p.metrics:
+                        print(" " + p.metrics[metric], end="")
+        print(" \\\\ \\hline")
 
     print("""
     \\end{tabular}}
-    \\caption{METRIC}
-    \\label{fig:METRIC}
+    \\caption{""" + metric_name + """}
+    \\label{fig:""" + metric + """}
 \\end{table}""")
 
     print("""\\end{document}""")
