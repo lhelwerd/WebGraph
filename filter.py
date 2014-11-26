@@ -1,8 +1,10 @@
 # Imports
+from __future__ import print_function
 import sys
 from glob import glob
 import re
 import os
+from collections import OrderedDict
 
 class Dataset:
     def __init__(self, name):
@@ -18,8 +20,15 @@ class Compression:
 # Main function
 def main(argv):
     # Constants
-    types = ["none", "gaps", "interval", "copylist", "copyblocks", "copyflags"]
-    regex = r"^(.*)-(" + "|".join(types) + r")(?:-(.*))?$"
+    types = OrderedDict([
+        ("none", "None"),
+        ("gaps", "Gaps"),
+        ("interval", "Interval"),
+        ("copylist", "Copy list"),
+        ("copyblocks", "Copy blocks"),
+        ("copyflags", "Copy flags")
+    ])
+    regex = r"^(.*)-(" + "|".join(types.keys()) + r")(?:-(.*))?$"
     property_filter = [
         "bitsforblocks", "residualarcs", "avgref", "avgbitsforoutdegrees",
         "avgbitsforblocks", "bitsperlink", "bitsforresiduals",
@@ -35,20 +44,19 @@ def main(argv):
     sets = {}
 
     # Read the experiments
-    properties = glob(path + "/*.properties")
+    properties = sorted(glob(path + "/*.properties"))
     for p in properties:
         experiment = p[len(path):-len(".properties")]
         prefix = path + "/" + experiment
 
         m = re.match(regex, experiment)
-        print(m.groups())
         name, compression, params = m.groups()
 
         if name not in sets:
             sets[name] = Dataset(name)
 
         if compression not in sets[name].compressions:
-            sets[name].compressions[compression] = {}
+            sets[name].compressions[compression] = OrderedDict()
 
         data = Compression(compression, params)
 
@@ -99,7 +107,6 @@ def main(argv):
         except OSError:
             data.metrics["size"] = None
 
-        print(data.metrics)
         sets[name].compressions[compression][params] = data
 
     sizes = glob(path + "/*.sizes")
@@ -111,11 +118,63 @@ def main(argv):
             experiment = parts[-1]
             if experiment.endswith(".graph"):
                 m = re.match(regex, experiment[:-len(".graph")])
-                print(m.groups(), size)
                 name, compression, params = m.groups()
                 sets[name].compressions[compression][params].metrics["size"] = size
 
         size_file.close()
+
+    print("""\\documentclass{article}
+\\usepackage{array}
+\\newcolumntype{x}[1]{>{\\centering\\arraybackslash}p{#1}}
+\\usepackage{tikz}
+\\newcommand\diag[4]{%
+  \\multicolumn{1}{|p{#2}|}{\hskip-\\tabcolsep
+    $\\vcenter{\\begin{tikzpicture}[baseline=0,anchor=south west,inner sep=#1]
+    \\path[use as bounding box] (0,0) rectangle (#2+2\\tabcolsep,\\baselineskip);
+    \\node[minimum width={#2+2\\tabcolsep-\\pgflinewidth},
+        minimum  height=\\baselineskip+\\extrarowheight-\\pgflinewidth] (box) {};
+    \\draw[line cap=round] (box.north west) -- (box.south east);
+    \\node[anchor=south west] at (box.south west) {#3};
+    \\node[anchor=north east] at (box.north east) {#4};
+\\end{tikzpicture}}$\hskip-\\tabcolsep}%
+}
+\\begin{document}""")
+    first = next(sets.itervalues())
+    lengths = dict([(c, 1) for c in types.keys()])
+    for compression, vals in first.compressions.iteritems():
+        lengths[compression] = len(vals)
+
+    columnspec = "|x{3cm}" + ("|l" * sum(lengths.itervalues())) + "|"
+    print("""
+\\begin{table}[h]
+    \\centering
+    {\\footnotesize \\begin{tabular}{""" + columnspec + """} \\hline
+        Algorithm & """ + " & ".join(["\multicolumn{" + str(lengths[c]) + "}{c|}{" + types[c] + "}" for c in types.keys()]) + """ \\\\ \\hline""")
+
+    print("\diag{.025em}{3cm}{Dataset}{Parameters}", end="")
+
+    for compression in types.iterkeys():
+        if compression not in first.compressions:
+            print(" & " * lengths[compression], end="")
+        else:
+            for params in first.compressions[compression].keys():
+                print(" & ", end="")
+                if params is not None:
+                    print("\\begin{tabular}[t]{@{}c@{}}" + "\\\\".join(["${} = {}$".format(params[i], "\\infty" if params[i+1] == "-" else params[i+1]) for i in range(0, (len(params)/2)*2, 2)]) + "\\end{tabular}", end="")
+
+    print("\\\\ \\hline")
+
+    for name in sets.keys():
+        print(name + " & " * sum(lengths.values()) + "\\\\ \\hline")
+
+    print("""
+    \\end{tabular}}
+    \\caption{METRIC}
+    \\label{fig:METRIC}
+\\end{table}""")
+
+    print("""\\end{document}""")
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])
