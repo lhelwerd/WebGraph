@@ -17,6 +17,50 @@ class Compression:
         self.params = params
         self.metrics = {}
 
+def print_table(metric, metric_name, sets, types, printer):
+    first = next(sets.itervalues())
+    lengths = dict([(c, 1) for c in types.keys()])
+    for compression, vals in first.compressions.iteritems():
+        lengths[compression] = len(vals)
+
+    columnspec = "|x{2.5cm}" + ("|l" * sum(lengths.itervalues())) + "|"
+    print("""
+\\begin{table}[h]
+    \\centering
+    {\\setlength{\\tabcolsep}{2pt}\\footnotesize \\begin{tabular}{""" + columnspec + """} \\hline
+\multicolumn{1}{|r|}{Algorithm} & """ + " & ".join(["\multicolumn{" + str(lengths[c]) + "}{c|}{" + types[c] + "}" for c in types.keys()]) + """ \\\\ \\hline""")
+
+    print("\diag{.2em}{2.5cm}{Dataset}{Parameters}", end="")
+
+    for compression in types.iterkeys():
+        if compression not in first.compressions:
+            print(" &" * lengths[compression], end="")
+        else:
+            for params in first.compressions[compression].keys():
+                print(" &", end="")
+                if params is not None:
+                    print(" \\begin{tabular}[t]{@{}c@{}}" + "\\\\".join(["${} = {}$".format(params[i], "\\infty" if params[i+1] == "-" else params[i+1]) for i in range(0, (len(params)/2)*2, 2)]) + "\\end{tabular}", end="")
+
+    print(" \\\\ \\hline")
+
+    for name in sets.keys():
+        print(name, end="")
+        for compression in types.iterkeys():
+            if compression not in sets[name].compressions:
+                print(" &" * lengths[compression], end="")
+            else:
+                for p in sets[name].compressions[compression].itervalues():
+                    print(" &", end="")
+                    if metric in p.metrics and p.metrics[metric] is not None:
+                        print(" " + printer(p), end="")
+        print(" \\\\ \\hline")
+
+    print("""
+    \\end{tabular}}
+    \\caption{""" + metric_name + """}
+    \\label{fig:""" + metric + """}
+\\end{table}""")
+
 # Main function
 def main(argv):
     # Constants
@@ -71,35 +115,41 @@ def main(argv):
 
         prop_file.close()
 
-        stats_file = open(prefix + ".stats")
-        for line in stats_file:
-            if " - " in line:
-                info = line[:-1].split(" - ")[1]
-                if info == "Loading graph...":
-                    key = "loadtime"
-                elif info == "Storing...":
-                    key = "storetime"
-                elif info.startswith("Elapsed: "):
-                    time = info[len("Elapsed: "):info.find(" [")]
-                    data.metrics[key] = time
-            elif line.startswith("mem\t"):
-                value = line[len("mem\t"):-len("/4 kB\n")]
-                data.metrics["peakmem"] = int(value)/4
+        try:
+            stats_file = open(prefix + ".stats")
+            for line in stats_file:
+                if " - " in line:
+                    info = line[:-1].split(" - ")[1]
+                    if info == "Loading graph...":
+                        key = "loadtime"
+                    elif info == "Storing...":
+                        key = "storetime"
+                    elif info.startswith("Elapsed: "):
+                        time = info[len("Elapsed: "):info.find(" [")]
+                        data.metrics[key] = time
+                elif line.startswith("mem\t"):
+                    value = line[len("mem\t"):-len("/4 kB\n")]
+                    data.metrics["peakmem"] = int(value)/4
 
-        stats_file.close()
+            stats_file.close()
+        except IOError:
+            pass
 
         for speed in ["seq", "rand"]:
-            speed_file = open(prefix + "." + speed + "speedtest")
-            for line in speed_file:
-                if line.startswith("Time: "):
-                    parts = line.split(" ")
-                    for p in range(0, len(parts), 2):
-                        key = parts[p].lower()[:-1]
-                        value = parts[p+1]
-                        if not value[-1].isdigit():
-                            value = value[:-1]
-                        data.metrics[speed + "_" + key] = value
-            speed_file.close()
+            try:
+                speed_file = open(prefix + "." + speed + "speedtest")
+                for line in speed_file:
+                    if line.startswith("Time: "):
+                        parts = line.split(" ")
+                        for p in range(0, len(parts), 2):
+                            key = parts[p].lower()[:-1]
+                            value = parts[p+1]
+                            if not value[-1].isdigit():
+                                value = value[:-1]
+                            data.metrics[speed + "_" + key] = value
+                speed_file.close()
+            except IOError:
+                pass
 
         try:
             st = os.stat(prefix + ".graph")
@@ -114,6 +164,9 @@ def main(argv):
         size_file = open(s)
         for line in size_file:
             parts = line[:-1].split()
+            if len(parts) < 6:
+                continue
+
             size = int(parts[5])
             experiment = parts[-1]
             if experiment.endswith(".graph"):
@@ -140,51 +193,32 @@ def main(argv):
 }
 \\begin{document}""")
 
-    metric = "storetime"
-    metric_name = "Time to compress from memory to the compressed format."
+    metrics = OrderedDict([
+        ("storetime", "Time to compress from memory to the compressed format."),
+        ("peakmem", "Peak memory usage during compression."),
+        ("bitspernode", "The number of bits per node and per link in the compressed format."),
+        ("rand_ns/node", "Time to access a random node and single link of a node."),
+        ("seq_time", "Sequential access times."),
+        ("avgref", "Average reference chain")
+    ])
 
-    first = next(sets.itervalues())
-    lengths = dict([(c, 1) for c in types.keys()])
-    for compression, vals in first.compressions.iteritems():
-        lengths[compression] = len(vals)
-
-    columnspec = "|x{2.5cm}" + ("|l" * sum(lengths.itervalues())) + "|"
-    print("""
-\\begin{table}[h]
-    \\centering
-    {\\setlength{\\tabcolsep}{2pt}\\footnotesize \\begin{tabular}{""" + columnspec + """} \\hline
-\multicolumn{1}{|r|}{Algorithm} & """ + " & ".join(["\multicolumn{" + str(lengths[c]) + "}{c|}{" + types[c] + "}" for c in types.keys()]) + """ \\\\ \\hline""")
-
-    print("\diag{.2em}{2.5cm}{Dataset}{Parameters}", end="")
-
-    for compression in types.iterkeys():
-        if compression not in first.compressions:
-            print(" &" * lengths[compression], end="")
+    for metric, metric_name in metrics.iteritems():
+        if metric == "avgref":
+            # Only applicable on copy algorithms
+            algos = {k: v for k, v in types.items() if k.startswith("copy")}
         else:
-            for params in first.compressions[compression].keys():
-                print(" &", end="")
-                if params is not None:
-                    print(" \\begin{tabular}[t]{@{}c@{}}" + "\\\\".join(["${} = {}$".format(params[i], "\\infty" if params[i+1] == "-" else params[i+1]) for i in range(0, (len(params)/2)*2, 2)]) + "\\end{tabular}", end="")
+            algos = types
 
-    print(" \\\\ \\hline")
+        if metric == "peakmem":
+            printer = lambda p: str(int(p.metrics[metric])/1024) + " MB"
+        elif metric == "bitspernode":
+            printer = lambda p: str(p.metrics[metric]) + "/node, " + str(p.metrics["bitsperlink"]) + "/link"
+        elif metric == "rand_ns/node":
+            printer = lambda p: str(p.metrics[metric]) + "ns/node, " + str(p.metrics["rand_ns/link"]) + "ns/link"
+        else:
+            printer = lambda p: str(p.metrics[metric])
 
-    for name in sets.keys():
-        print(name, end="")
-        for compression in types.iterkeys():
-            if compression not in sets[name].compressions:
-                print(" &" * lengths[compression], end="")
-            else:
-                for p in sets[name].compressions[compression].itervalues():
-                    print(" &", end="")
-                    if metric in p.metrics:
-                        print(" " + p.metrics[metric], end="")
-        print(" \\\\ \\hline")
-
-    print("""
-    \\end{tabular}}
-    \\caption{""" + metric_name + """}
-    \\label{fig:""" + metric + """}
-\\end{table}""")
+        print_table(metric, metric_name, sets, algos, printer)
 
     print("""\\end{document}""")
 
