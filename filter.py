@@ -74,8 +74,8 @@ def main(argv):
                 elif info.startswith("Elapsed: "):
                     time = info[len("Elapsed: "):info.find(" [")]
                     data.metrics[key] = time
-            elif line.startswith("mem"):
-                value = line[len("mem     "):-len("/4 kB\n")]
+            elif line.startswith("mem\t"):
+                value = line[len("mem\t"):-len("/4 kB\n")]
                 data.metrics["peakmem"] = int(value)/4
 
         stats_file.close()
