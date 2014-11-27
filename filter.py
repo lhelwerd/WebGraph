@@ -91,6 +91,9 @@ def main(argv):
     properties = sorted(glob(path + "/*.properties"))
     for p in properties:
         experiment = p[len(path):-len(".properties")]
+        if experiment[0] == "/":
+            experiment = experiment[1:]
+
         prefix = path + "/" + experiment
 
         m = re.match(regex, experiment)
