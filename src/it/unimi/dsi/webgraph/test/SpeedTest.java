@@ -29,6 +29,7 @@ import it.unimi.dsi.webgraph.LazyIntIterator;
 import it.unimi.dsi.webgraph.NodeIterator;
 
 import java.io.IOException;
+import java.lang.management.*;
 import java.lang.reflect.InvocationTargetException;
 
 import com.martiansoftware.jsap.FlaggedOption;
@@ -98,14 +99,15 @@ public class SpeedTest {
 			
 			for( int k = WARMUP + REPEAT; k-- != 0; ) {
 				r.setSeed( seed );
-				long time = -System.nanoTime();
+				ThreadMXBean bean = ManagementFactory.getThreadMXBean();
+				long time = -bean.getCurrentThreadCpuTime();
 				if ( first ) 
 					for( long i = samples; i-- != 0; ) graph.successors( r.nextInt( n ) ).nextInt();
 				else 
 					for( long i = samples; i-- != 0; ) 
 						for( LazyIntIterator links = graph.successors( r.nextInt( n ) ); links.nextInt() != - 1; );
 
-				time += System.nanoTime();
+				time += bean.getCurrentThreadCpuTime();
 				
 				if ( k < REPEAT ) cumulativeTime += time;
 				System.err.printf( "Intermediate time: %3fs nodes: %d; arcs %d; nodes/s: %.3f arcs/s: %.3f ns/node: %3f, ns/link: %.3f\n", 
@@ -123,7 +125,8 @@ public class SpeedTest {
 			System.err.println( "Accessing links sequentially using ImmutableGraph.successorArray()..." );
 			
 			for( int k = WARMUP + REPEAT; k-- != 0; ) {
-				long time = -System.nanoTime();
+				ThreadMXBean bean = ManagementFactory.getThreadMXBean();
+				long time = -bean.getCurrentThreadCpuTime();
 				final NodeIterator nodeIterator = graph.nodeIterator();
 				totLinks = 0;
 				for( long i = samples; i-- != 0; ) {
@@ -131,7 +134,7 @@ public class SpeedTest {
 					totLinks += nodeIterator.outdegree();
 					nodeIterator.successorArray();
 				}
-				time += System.nanoTime();
+				time += bean.getCurrentThreadCpuTime();
 				
 				if ( k < REPEAT ) cumulativeTime += time;
 				System.err.printf( "Intermediate time: %3fs nodes: %d; arcs %d; nodes/s: %.3f arcs/s: %.3f ns/node: %3f, ns/link: %.3f\n", 
