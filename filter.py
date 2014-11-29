@@ -199,12 +199,13 @@ def main(argv):
 
     metrics = OrderedDict([
         ("storetime", "Time to compress from memory to the compressed format."),
-        ("peakmem", "Peak memory usage during compression, in MB."),
-        ("bitspernode", "The number of bits per node and per link in the compressed format."),
+        ("peakmem", "Peak memory usage during compression, in megabytes."),
+        ("bitspernode", "The number of bits per node in the compressed format."),
+        ("bitsperlink", "The number of bits per link in the compressed format."),
         ("rand_ns/node", "Time to access a random node, in microseconds."),
         ("rand_ns/link", "Time to access a single link of a node, in microseconds."),
         ("seq_time", "Sequential access time, in seconds."),
-        ("avgref", "Average reference chain.")
+        ("avgref", "Average length of a reference chain.")
     ])
 
     for metric, metric_name in metrics.iteritems():
@@ -216,7 +217,7 @@ def main(argv):
 
         if metric == "peakmem":
             printer = lambda p: "{:.0f}".format(float(p.metrics[metric])/1024.0)
-        elif metric == "bitspernode":
+        elif metric == "bitspernode" or metric == "bitsperlink":
             printer = lambda p: "{:.0f}".format(float(p.metrics[metric]))
         elif metric == "rand_ns/node" or metric == "rand_ns/link":
             printer = lambda p: "{:.2f}".format(float(p.metrics[metric]) / 1000.0)
