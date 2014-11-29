@@ -24,14 +24,14 @@ def print_table(metric, metric_name, sets, types, printer):
     for compression, vals in first.compressions.iteritems():
         lengths[compression] = len(vals)
 
-    columnspec = "|x{2.5cm}" + ("|l" * sum(lengths.itervalues())) + "|"
+    columnspec = "|x{2cm}" + ("|l" * sum(lengths.itervalues())) + "|"
     print("""
-\\begin{table}[h]
+\\begin{table*}[t]
     \\centering
     {\\setlength{\\tabcolsep}{2pt}\\footnotesize \\begin{tabular}{""" + columnspec + """} \\hline
-\multicolumn{1}{|r|}{Algorithm} & """ + " & ".join(["\multicolumn{" + str(lengths[c]) + "}{c|}{" + types[c] + "}" for c in types.keys()]) + """ \\\\ \\hline""")
+\multicolumn{1}{|r|}{Algorithm} & """ + " & ".join(["\\multicolumn{" + str(lengths[c]) + "}{c|}{" + types[c] + "}" for c in types.keys()]) + """ \\\\ \\hline""")
 
-    print("\diag{.2em}{2.5cm}{Dataset}{Parameters}", end="")
+    print("\diag{.2em}{2cm}{Dataset}{Settings}", end="")
 
     for compression in types.iterkeys():
         if compression not in first.compressions:
@@ -40,7 +40,7 @@ def print_table(metric, metric_name, sets, types, printer):
             for params in first.compressions[compression].keys():
                 print(" &", end="")
                 if params is not None:
-                    print(" \\begin{tabular}[t]{@{}c@{}}" + "\\\\".join(["${} = {}$".format(params[i], "\\infty" if params[i+1] == "-" else params[i+1]) for i in range(0, (len(params)/2)*2, 2)]) + "\\end{tabular}", end="")
+                    print(" \\multicolumn{1}{c|}{\\begin{tabular}[t]{@{}c@{}}" + "\\\\".join(["${} = {}$".format(params[i], "\\infty" if params[i+1] == "-" else params[i+1]) for i in range(0, (len(params)/2)*2, 2)]) + "\\end{tabular}}", end="")
 
     print(" \\\\ \\hline")
 
@@ -60,7 +60,7 @@ def print_table(metric, metric_name, sets, types, printer):
     \\end{tabular}}
     \\caption{""" + metric_name + """}
     \\label{fig:""" + metric + """}
-\\end{table}""")
+\\end{table*}""")
 
 # Main function
 def main(argv):
@@ -199,9 +199,10 @@ def main(argv):
 
     metrics = OrderedDict([
         ("storetime", "Time to compress from memory to the compressed format."),
-        ("peakmem", "Peak memory usage during compression."),
+        ("peakmem", "Peak memory usage during compression, in MB."),
         ("bitspernode", "The number of bits per node and per link in the compressed format."),
-        ("rand_ns/node", "Time to access a random node and single link of a node, in microseconds."),
+        ("rand_ns/node", "Time to access a random node, in microseconds."),
+        ("rand_ns/link", "Time to access a single link of a node, in microseconds."),
         ("seq_time", "Sequential access time, in seconds."),
         ("avgref", "Average reference chain.")
     ])
@@ -214,11 +215,11 @@ def main(argv):
             algos = types
 
         if metric == "peakmem":
-            printer = lambda p: "{} MB".format(int(p.metrics[metric])/1024)
+            printer = lambda p: "{:.0f}".format(float(p.metrics[metric])/1024.0)
         elif metric == "bitspernode":
-            printer = lambda p: "{}/node, {}/link".format(p.metrics[metric], p.metrics["bitsperlink"])
-        elif metric == "rand_ns/node":
-            printer = lambda p: "{:.2f}/node, {:.2f}/link".format(float(p.metrics[metric]) / 1000.0, float(p.metrics["rand_ns/link"]) / 1000.0)
+            printer = lambda p: "{:.0f}".format(float(p.metrics[metric]))
+        elif metric == "rand_ns/node" or metric == "rand_ns/link":
+            printer = lambda p: "{:.2f}".format(float(p.metrics[metric]) / 1000.0)
         else:
             printer = lambda p: str(p.metrics[metric])
 
