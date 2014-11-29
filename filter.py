@@ -201,9 +201,9 @@ def main(argv):
         ("storetime", "Time to compress from memory to the compressed format."),
         ("peakmem", "Peak memory usage during compression."),
         ("bitspernode", "The number of bits per node and per link in the compressed format."),
-        ("rand_ns/node", "Time to access a random node and single link of a node."),
-        ("seq_time", "Sequential access times."),
-        ("avgref", "Average reference chain")
+        ("rand_ns/node", "Time to access a random node and single link of a node, in microseconds."),
+        ("seq_time", "Sequential access time, in seconds."),
+        ("avgref", "Average reference chain.")
     ])
 
     for metric, metric_name in metrics.iteritems():
@@ -214,11 +214,11 @@ def main(argv):
             algos = types
 
         if metric == "peakmem":
-            printer = lambda p: str(int(p.metrics[metric])/1024) + " MB"
+            printer = lambda p: "{} MB".format(int(p.metrics[metric])/1024)
         elif metric == "bitspernode":
-            printer = lambda p: str(p.metrics[metric]) + "/node, " + str(p.metrics["bitsperlink"]) + "/link"
+            printer = lambda p: "{}/node, {}/link".format(p.metrics[metric], p.metrics["bitsperlink"])
         elif metric == "rand_ns/node":
-            printer = lambda p: str(p.metrics[metric]) + "ns/node, " + str(p.metrics["rand_ns/link"]) + "ns/link"
+            printer = lambda p: "{:.2f}/node, {:.2f}/link".format(float(p.metrics[metric]) / 1000.0, float(p.metrics["rand_ns/link"]) / 1000.0)
         else:
             printer = lambda p: str(p.metrics[metric])
 
