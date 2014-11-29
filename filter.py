@@ -4,6 +4,7 @@ import sys
 from glob import glob
 import re
 import os
+import os.path
 from collections import OrderedDict
 
 class Dataset:
@@ -90,11 +91,11 @@ def main(argv):
     # Read the experiments
     properties = sorted(glob(path + "/*.properties"))
     for p in properties:
-        experiment = p[len(path):-len(".properties")]
+        experiment = os.path.basename(p)[:-len(".properties")]
         if experiment[0] == "/":
             experiment = experiment[1:]
 
-        prefix = path + "/" + experiment
+        prefix = os.path.dirname(p) + "/" + experiment
 
         m = re.match(regex, experiment)
         name, compression, params = m.groups()
