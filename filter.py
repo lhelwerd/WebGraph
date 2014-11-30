@@ -26,9 +26,9 @@ def print_table(metric, metric_name, sets, types, printer):
 
     columnspec = "|x{2cm}" + ("|l" * sum(lengths.itervalues())) + "|"
     print("""
-\\begin{table*}[t]
+\\begin{table}[t]
     \\centering
-    {\\setlength{\\tabcolsep}{2pt}\\footnotesize \\begin{tabular}{""" + columnspec + """} \\hline
+    {\\setlength{\\tabcolsep}{2pt}\\scriptsize \\begin{tabular}{""" + columnspec + """} \\hline
 \multicolumn{1}{|r|}{Algorithm} & """ + " & ".join(["\\multicolumn{" + str(lengths[c]) + "}{c|}{" + types[c] + "}" for c in types.keys()]) + """ \\\\ \\hline""")
 
     print("\diag{.2em}{2cm}{Dataset}{Settings}", end="")
@@ -45,7 +45,7 @@ def print_table(metric, metric_name, sets, types, printer):
     print(" \\\\ \\hline")
 
     for name in sets.keys():
-        print(name, end="")
+        print("\\textsc{" + name + "}", end="")
         for compression in types.iterkeys():
             if compression not in sets[name].compressions:
                 print(" &" * lengths[compression], end="")
@@ -59,8 +59,8 @@ def print_table(metric, metric_name, sets, types, printer):
     print("""
     \\end{tabular}}
     \\caption{""" + metric_name + """}
-    \\label{fig:""" + metric + """}
-\\end{table*}""")
+    \\label{tab:""" + metric + """}
+\\end{table}""")
 
 # Main function
 def main(argv):
@@ -206,7 +206,7 @@ def main(argv):
         ("rand_ns/node", "Time to access a random node, in microseconds."),
         ("rand_ns/link", "Time to access a single link of a node, in microseconds."),
         ("seq_time", "Sequential access time, in seconds."),
-        ("avgref", "Average length of a reference chain."),
+        ("avgref", "Average reference chain length."),
     ])
 
     for metric, metric_name in metrics.iteritems():
@@ -230,7 +230,6 @@ def main(argv):
         print_table(metric, metric_name, sets, algos, printer)
 
     print("""\\end{document}""")
-
 
 if __name__ == "__main__":
     main(sys.argv[1:])
