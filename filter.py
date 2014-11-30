@@ -86,7 +86,7 @@ def main(argv):
     path = argv[0] if len(argv) > 0 else "../experiments"
 
     # Data table to put intermediate representations in
-    sets = {}
+    sets = OrderedDict([(name, Dataset(name)) for name in ["cnr-2000", "in-2004", "uk-2002", "twitter-2010", "uk-2007-02"]])
 
     # Read the experiments
     properties = sorted(glob(path + "/*.properties"))
@@ -202,10 +202,11 @@ def main(argv):
         ("peakmem", "Peak memory usage during compression, in megabytes."),
         ("bitspernode", "The number of bits per node in the compressed format."),
         ("bitsperlink", "The number of bits per link in the compressed format."),
+        ("size", "Total size of the compressed graph, in megabytes."),
         ("rand_ns/node", "Time to access a random node, in microseconds."),
         ("rand_ns/link", "Time to access a single link of a node, in microseconds."),
         ("seq_time", "Sequential access time, in seconds."),
-        ("avgref", "Average length of a reference chain.")
+        ("avgref", "Average length of a reference chain."),
     ])
 
     for metric, metric_name in metrics.iteritems():
@@ -219,6 +220,8 @@ def main(argv):
             printer = lambda p: "{:.0f}".format(float(p.metrics[metric])/1024.0)
         elif metric == "bitspernode" or metric == "bitsperlink":
             printer = lambda p: "{:.0f}".format(float(p.metrics[metric]))
+        elif metric == "size":
+            printer = lambda p: "{:.0f}".format(float(p.metrics[metric])/(1024.0*1024.0))
         elif metric == "rand_ns/node" or metric == "rand_ns/link":
             printer = lambda p: "{:.2f}".format(float(p.metrics[metric]) / 1000.0)
         else:
