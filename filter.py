@@ -26,7 +26,7 @@ def print_table(metric, metric_name, sets, types, printer):
 
     columnspec = "|x{2cm}" + ("|l" * sum(lengths.itervalues())) + "|"
     print("""
-\\begin{table}[t]
+\\begin{table}[!ht]
     \\centering
     {\\setlength{\\tabcolsep}{2pt}\\scriptsize \\begin{tabular}{""" + columnspec + """} \\hline
 \multicolumn{1}{|r|}{Algorithm} & """ + " & ".join(["\\multicolumn{" + str(lengths[c]) + "}{c|}{" + types[c] + "}" for c in types.keys()]) + """ \\\\ \\hline""")
@@ -53,11 +53,10 @@ def print_table(metric, metric_name, sets, types, printer):
                 for p in sets[name].compressions[compression].itervalues():
                     print(" &", end="")
                     if metric in p.metrics and p.metrics[metric] is not None:
-                        print(" " + printer(p), end="")
+                        print(" " + printer(p, name), end="")
         print(" \\\\ \\hline")
 
-    print("""
-    \\end{tabular}}
+    print("""    \\end{tabular}}
     \\caption{""" + metric_name + """}
     \\label{tab:""" + metric + """}
 \\end{table}""")
@@ -79,7 +78,7 @@ def main(argv):
         "avgbitsforblocks", "bitsperlink", "bitsforresiduals",
         "bitsforreferences", "avgbitsforreferences", "nodes", "bitspernode",
         "arcs", "bitsforoutdegrees", "avgbitsforintervals",
-        "avgbitsforresiduals"
+        "avgbitsforresiduals", "compratio" # (overridden)
     ]
 
     # Input parameters
@@ -203,6 +202,7 @@ def main(argv):
         ("bitspernode", "The number of bits per node in the compressed format."),
         ("bitsperlink", "The number of bits per link in the compressed format."),
         ("size", "Total size of the compressed graph, in megabytes."),
+        ("compratio", "Compression ratio compared with the uncompressed graph."),
         ("rand_ns/node", "Time to access a random node, in microseconds."),
         ("rand_ns/link", "Time to access a single link of a node, in microseconds."),
         ("seq_time", "Sequential access time, in seconds."),
@@ -212,20 +212,24 @@ def main(argv):
     for metric, metric_name in metrics.iteritems():
         if metric == "avgref":
             # Only applicable on copy algorithms
-            algos = {k: v for k, v in types.items() if k.startswith("copy")}
+            algos = OrderedDict([(k, v) for k, v in types.items() if k.startswith("copy")])
+        elif metric == "compratio":
+            algos = OrderedDict([(k, v) for k, v in types.items() if k != "none"])
         else:
             algos = types
 
         if metric == "peakmem":
-            printer = lambda p: "{:.0f}".format(float(p.metrics[metric])/1024.0)
+            printer = lambda p, n: "{:.0f}".format(float(p.metrics[metric])/1024.0)
         elif metric == "bitspernode" or metric == "bitsperlink":
-            printer = lambda p: "{:.0f}".format(float(p.metrics[metric]))
+            printer = lambda p, n: "{:.0f}".format(float(p.metrics[metric]))
         elif metric == "size":
-            printer = lambda p: "{:.0f}".format(float(p.metrics[metric])/(1024.0*1024.0))
+            printer = lambda p, n: "{:.0f}".format(float(p.metrics[metric])/(1024.0*1024.0))
+        elif metric == "compratio":
+            printer = lambda p, n: "{:.0f}\\%".format(100.0*float(p.metrics["size"])/float(sets[n].compressions["none"][None].metrics["size"]))
         elif metric == "rand_ns/node" or metric == "rand_ns/link":
-            printer = lambda p: "{:.2f}".format(float(p.metrics[metric]) / 1000.0)
+            printer = lambda p, n: "{:.2f}".format(float(p.metrics[metric]) / 1000.0)
         else:
-            printer = lambda p: str(p.metrics[metric])
+            printer = lambda p, n: str(p.metrics[metric])
 
         print_table(metric, metric_name, sets, algos, printer)
 
