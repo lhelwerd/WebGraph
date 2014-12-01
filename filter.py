@@ -225,7 +225,7 @@ def main(argv):
         elif metric == "size":
             printer = lambda p, n: "{:.0f}".format(float(p.metrics[metric])/(1024.0*1024.0))
         elif metric == "compratio":
-            printer = lambda p, n: "{:.0f}\\%".format(100.0*float(p.metrics["size"])/float(sets[n].compressions["none"][None].metrics["size"]))
+            printer = lambda p, n: "{:.0f}\\%".format(100.0-100.0*float(p.metrics["size"])/float(sets[n].compressions["none"][None].metrics["size"]))
         elif metric == "rand_ns/node" or metric == "rand_ns/link":
             printer = lambda p, n: "{:.2f}".format(float(p.metrics[metric]) / 1000.0)
         else:
