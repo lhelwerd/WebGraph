@@ -10,7 +10,7 @@ the following steps should be followed:
 - Retrieve the WebGraph framework source code with extensions from this
   repository. This version contains the copy list and copy flags compression
   formats, as well as additional flags for the other compression schemes.
-- Compile the JAR file of the framework using Maven by running mvn install
+- Compile the JAR file of the framework using Maven by running "mvn install"
   within the WebGraph root directory.
 - Copy the target/webgraph-3.4.2.jar file it to the same location as the JAR
   files from the dependencies.
@@ -19,7 +19,9 @@ In order to use Maven on a computer where it is not yet in the PATH, one
 can run mvn.sh provided in the repository. This sets up a link to the Maven
 root directory. Note that it only keeps the path setting for the current
 session by default. Instructions on adding the paths to a .bashrc file, for
-example, are given by the script.
+example, are given by the script. Otherwise, one should either run the script
+in a bash with ". ./mvn.sh" and run mvn afterwards, or with "./mvn.sh install"
+(i.e., in place of mvn).
 
 The framework has different modes of operations that allow compressing,
 decompressing and testing graph files in different formats. For example, the
