@@ -69,6 +69,16 @@ java -cp "*" it.unimi.dsi.webgraph.ASCIIGraph -g BVGraph ../sets/uk-2002 ../sets
 The second format is a naive listing of pairs of edges:
 java -cp "*" it.unimi.dsi.webgraph.ArcListASCIIGraph -g BVGraph ../sets/uk-2002 ../sets/uk.edges
 
+One can also import a graph from these flat files, by swapping around the
+"ASCIIGraph" or "ArcListASCIIGraph" class with the "BVGraph" class. This
+requires that those files are sorted correctly and do not contain non-edge
+data such as comments. For example:
+java -cp "*" it.unimi.dsi.webgraph.BVGraph -g ArcListASCIIGraph ../sets/huge.txt.e ../sets/huge
+Here, one can again add specific compression flags to tune which compression
+and which settings to use. Note that this will almost always giv increased
+compression since it is no longer stored as ASCII text but as binary codes,
+skewing the comparison.
+
 The WebGraph framework also provides a speed test module, which has been
 adapted to use CPU time instead of wall-clock time. The speed test has two
 different modes in which it can operate. By default, the speed test performs
